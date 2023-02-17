@@ -5,6 +5,9 @@ from time import sleep
 import mpv
 import PySimpleGUI as sg
 
+import time
+from PIL import Image, ImageDraw, ImageFont
+
 import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -13,8 +16,8 @@ logging.basicConfig(level=logging.INFO)
 # Player.cmd_prefix = CmdPrefix.PAUSING_KEEP
 
 # Since autospawn is True by default, no need to call player.spawn() manually
-player = mpv.MPV(ytdl=True)
-player2 = mpv.MPV(ytdl=True)
+player = mpv.MPV(ytdl=True, input_default_bindings=False, input_vo_keyboard=True)
+player2 = mpv.MPV(ytdl=True, input_default_bindings=False, input_vo_keyboard=True, osc=True)
 
 # Option access, in general these require the core to reinitialize
 player['vo'] = 'gpu'
@@ -48,6 +51,15 @@ def generate_audio_track_list():
     for i, track in enumerate(track_list):
         if track.get('type', '') == 'sub':
             audio_track_list += f"{track.get('id', '')} {track.get('title', 'Track ' + str(track.get('id', '')))} - [{track.get('lang', '')}]\n"
+    audio_track_list += """\nControl:
+    F - fullscreen
+    P - play/pause
+    A - align
+    D - forward 10s
+    S - backward 10s  
+    H - forward 5m
+    G - backward 5m
+    """
     win['-AUDIOTRACK-'].update(audio_track_list)
 
 
@@ -88,6 +100,77 @@ def load_file(path_to_video):
     # player.sub = True
     # player.sub = int(values['-Player1Sub-'])
 
+@player.on_key_press('q')
+@player2.on_key_press('q')
+def my_q_binding():
+    # play_file()
+    print('THERE IS NO ESCAPE')
+
+
+@player.on_key_press('p')
+@player2.on_key_press('p')
+def my_p_binding():
+    play_file()
+
+
+@player.on_key_press('a')
+@player2.on_key_press('a')
+def my_a_binding():
+    align_files(2)
+
+
+@player.on_key_press('d')
+@player2.on_key_press('d')
+def my_d_binding():
+    align_files(-10)
+    # font = ImageFont.truetype('DejaVuSans.ttf', 40)
+    # time.sleep(0.5)
+    # overlay = player.create_image_overlay()
+    #
+    # # for pos in range(0, 500, 5):
+    # pos = 0
+    # ts = player.time_pos
+    # if ts is None:
+    #     return
+    #
+    # img = Image.new('RGBA', (400, 150),  (255, 255, 255, 0))
+    # d = ImageDraw.Draw(img)
+    # # d.text((10, 10), 'Hello World', font=font, fill=(0, 255, 255, 128))
+    # d.text((10, 60), f'{ts:.0f}', font=font, fill=(255, 255, 255, 255))
+    #
+    # overlay.update(img, pos=(2*pos, pos))
+    # time.sleep(1)
+    #
+    # overlay.remove()
+
+@player.on_key_press('s')
+@player2.on_key_press('s')
+def my_s_binding():
+    align_files(10)
+
+
+@player.on_key_press('h')
+@player2.on_key_press('h')
+def my_h_binding():
+    align_files(-300)
+
+
+@player.on_key_press('g')
+@player2.on_key_press('g')
+def my_g_binding():
+    align_files(300)
+
+
+
+
+@player2.on_key_press('f')
+def my_f_binding():
+    player2.fullscreen = not player2.fullscreen
+
+# @player2.on_key_press('q')
+# def my_q_binding():
+#     print('THERE IS NO ESCAPE 2')
+
 
 def play_file():
 
@@ -102,10 +185,10 @@ def play_file():
     # player2.pause()
 
 
-def align_files():
+def align_files(sec):
     if not player.time_pos:
         return
-    time_pos = max(0, player.time_pos - 3)
+    time_pos = max(0, player.time_pos - sec)
     player2.time_pos = time_pos
     player.time_pos = time_pos
 
@@ -117,11 +200,11 @@ layout = [
      sg.InputText('/home/amator/Bad.Santa.2.2016.Unrated.BDRip-AVC.OIV.mkv', key='-PATH-', size=(64, 1)),
      # sg.InputText('/run/media/amator/Data/Властелин Колец - Гоблин - Божья Искра/Братва и кольцо Гоблин 1080p.mp4', key='-PATH-', size=(64, 1)),
 
-     sg.FileBrowse(file_types=(("Video files", "*.avi"),))],
+     sg.FileBrowse(file_types=(("Video files", "*.mkv"),))],
 
     [sg.Button('Open', key=f'btnOpen', size=(22, 1)), sg.Button('Play/Pause', key=f'btnPlay', size=(22, 1)),
      sg.Button('Align', key=f'btnAlign', size=(22, 1))],
-    [sg.Text(size=(64, 15), key='-AUDIOTRACK-')],
+    [sg.Text(size=(64, 25), key='-AUDIOTRACK-')],
     [sg.Text('Player 1 Audio track:', size=(35, 1), auto_size_text=False, justification='left'),
      sg.Slider(range=(1, 6), orientation='h', size=(34, 20), default_value=1, key='-Player1AT-')],
     [sg.Text('Player 2 Audio track:', size=(35, 1), auto_size_text=False, justification='left'),
@@ -148,6 +231,6 @@ while True:
         except Exception as err:
             logger.info(err)
     elif event == 'btnAlign':
-        align_files()
+        align_files(2)
     else:
         logger.info(f'This event ({event}) is not yet handled.')
